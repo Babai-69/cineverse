@@ -1,0 +1,16 @@
+@tailwind base; @tailwind components; @tailwind utilities;
+:root{
+  --bg:#07070b; --surface:#101018; --surface-2:#181823; --border:rgba(255,255,255,.08);
+  --text:#f4f1ea; --muted:#9a98a6; --accent:#f5b942; --accent-2:#ff3d5a; --glow:rgba(245,185,66,.35);
+  --seat-available:#2a2f3d; --seat-hover:#3d4660; --seat-selected:#f5b942; --seat-sold:#14141b;
+  --seat-premium:#7c5cff; --seat-recliner:#e0457b; --seat-access:#2dd4bf;
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+html,body{background:var(--bg);color:var(--text);font-family:Inter,sans-serif;line-height:1.6}
+h1,h2,h3{font-family:'Bebas Neue',sans-serif;letter-spacing:.04em;text-transform:uppercase}
+.glass{background:rgba(16,16,24,.65);backdrop-filter:blur(14px);border-bottom:1px solid var(--border)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px}
+.btn{display:inline-flex;align-items:center;gap:.5rem;padding:.65rem 1.25rem;border-radius:999px;background:var(--accent);color:#111;font-weight:600;transition:transform .3s var(--ease),box-shadow .3s var(--ease)}
+.btn:hover{transform:translateY(-1px);box-shadow:0 0 24px var(--glow)}
+.pill{padding:.3rem .8rem;border-radius:999px;border:1px solid var(--border);font-size:.85rem;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
