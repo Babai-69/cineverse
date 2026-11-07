@@ -3,7 +3,9 @@ import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderAt } from './helpers'
 import { movies } from '../src/data/movies'
-import { getShows } from '../src/lib/shows'
+import { getShowsForTheatres } from '../src/lib/shows'
+import { nearbyCuratedTheatres } from '../src/lib/theatres'
+import { freezeTime } from './helpers'
 
 describe('Movies page', () => {
   it('lists now-showing movies and switches to coming soon', async () => {
@@ -38,13 +40,14 @@ describe('Movies page', () => {
 })
 
 describe('Movie page', () => {
+  freezeTime('2026-11-07T08:00:00') // before the first show, so every chip is a link
   it('shows details and theatre board with showtime links', () => {
     renderAt('/movie/m1')
     expect(screen.getByRole('heading',{level:1,name:'Midnight Raga'})).toBeInTheDocument()
-    expect(screen.getByText(/Theatres in Chennai/)).toBeInTheDocument()
+    expect(screen.getByText(/Theatres near Kolkata, West Bengal/)).toBeInTheDocument()
     const links = screen.getAllByRole('link').filter(a=>a.getAttribute('href')?.includes('/seats'))
     expect(links.length).toBeGreaterThan(10)
-    expect(links[0].getAttribute('href')).toMatch(/^\/book\/m1_che-\d_\d{4}-\d{2}-\d{2}_\d{4}\/seats$/)
+    expect(links[0].getAttribute('href')).toMatch(/^\/book\/m1_c\d+_\d{4}-\d{2}-\d{2}_\d{4}\/seats$/)
   })
   it('date change updates the board (different days -> different shows)', async () => {
     renderAt('/movie/m1')
@@ -69,12 +72,13 @@ describe('Movie page', () => {
   })
 })
 
-describe('getShows', () => {
+describe('getShowsForTheatres', () => {
+  const chennai = nearbyCuratedTheatres({lat:22.5726,lng:88.3639}, 25) // (Kolkata)
   it('respects movie formats', () => {
-    const rows = getShows('m1','Chennai','2026-11-07',['2D','IMAX'])
+    const rows = getShowsForTheatres('m1',chennai,'2026-11-07',['2D','IMAX'])
     rows.forEach(r=>r.shows.forEach(s=>expect(['2D','IMAX']).toContain(s.format)))
   })
   it('is deterministic', () => {
-    expect(getShows('m4','Kochi','2026-12-01',['2D'])).toEqual(getShows('m4','Kochi','2026-12-01',['2D']))
+    expect(getShowsForTheatres('m4',chennai,'2026-12-01',['2D'])).toEqual(getShowsForTheatres('m4',chennai,'2026-12-01',['2D']))
   })
 })

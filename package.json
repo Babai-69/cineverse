@@ -10,22 +10,30 @@
     "check": "tsx scripts/check-shows.ts",
     "test": "vitest run",
     "sync": "node scripts/sync.mjs",
-    "ship": "node scripts/ship.mjs"
+    "ship": "node scripts/ship.mjs",
+    "data:build": "node scripts/build-cinemas.mjs",
+    "geocode": "node scripts/geocode-cinemas.mjs",
+    "prebuild": "node scripts/build-cinemas.mjs"
   },
   "dependencies": {
+    "@react-three/drei": "^9.114.0",
+    "@react-three/fiber": "^8.17.10",
     "lucide-react": "^0.441.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.26.2",
+    "three": "^0.160.1",
     "zustand": "^4.5.5"
   },
   "devDependencies": {
+    "@react-three/test-renderer": "^8.2.1",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.8",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
+    "@types/three": "^0.160.0",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.20",
     "jsdom": "^25.0.1",

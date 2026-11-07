@@ -14,3 +14,8 @@ h1,h2,h3{font-family:'Bebas Neue',sans-serif;letter-spacing:.04em;text-transform
 .btn:hover{transform:translateY(-1px);box-shadow:0 0 24px var(--glow)}
 .pill{padding:.3rem .8rem;border-radius:999px;border:1px solid var(--border);font-size:.85rem;color:var(--muted)}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+:root{ --ok:#3ddc97; --warn:#ffb020; --bad:#ff4d6d }
+.lvl-plenty{--lvl:var(--ok)} .lvl-filling{--lvl:var(--warn)} .lvl-almost{--lvl:var(--bad)}
+.show-chip{border-color:color-mix(in srgb,var(--lvl) 55%,transparent);background:color-mix(in srgb,var(--lvl) 9%,transparent);color:var(--text)}
+.show-chip:hover{background:color-mix(in srgb,var(--lvl) 22%,transparent);box-shadow:0 0 18px color-mix(in srgb,var(--lvl) 35%,transparent)}
+.show-chip[aria-disabled=true]{opacity:.35;text-decoration:line-through;pointer-events:none;border-color:var(--border);background:transparent}

@@ -1,12 +1,18 @@
-import { getShows } from '../src/lib/shows'
+import { getShowsForTheatres } from '../src/lib/shows'
+import { nearbyCuratedTheatres } from '../src/lib/theatres'
 let fail = 0
 const ok = (c:boolean,m:string)=>{ console.log(c?'PASS':'FAIL',m); if(!c) fail++ }
-const a = JSON.stringify(getShows('m1','Chennai','2026-11-07'))
-ok(a===JSON.stringify(getShows('m1','Chennai','2026-11-07')),'same input -> identical shows')
-ok(a!==JSON.stringify(getShows('m2','Chennai','2026-11-07')),'different movie -> different shows')
-ok(a!==JSON.stringify(getShows('m1','Chennai','2026-11-08')),'different day -> different shows')
-const res = getShows('m3','Kochi','2026-11-09')
-ok(res.length===4,'4 theatres in Kochi')
+const kochi = nearbyCuratedTheatres({lat:9.9312,lng:76.2673}, 25).slice(0,4)
+const chennai = nearbyCuratedTheatres({lat:22.5726,lng:88.3639}, 25)  // Kolkata
+const a = JSON.stringify(getShowsForTheatres('m1',chennai,'2026-11-07'))
+ok(a===JSON.stringify(getShowsForTheatres('m1',chennai,'2026-11-07')),'same input -> identical shows')
+ok(a!==JSON.stringify(getShowsForTheatres('m2',chennai,'2026-11-07')),'different movie -> different shows')
+ok(a!==JSON.stringify(getShowsForTheatres('m1',chennai,'2026-11-08')),'different day -> different shows')
+const solo = getShowsForTheatres('m1',[chennai[1]],'2026-11-07')[0].shows
+const inList = getShowsForTheatres('m1',chennai,'2026-11-07').find(r=>r.theatre.id===chennai[1].id)!.shows
+ok(JSON.stringify(solo)===JSON.stringify(inList),"a theatre's shows do not depend on which other theatres are listed")
+const res = getShowsForTheatres('m3',kochi,'2026-11-09')
+ok(res.length===4,'4 theatres picked near Kochi')
 ok(res.every((r,i)=>i===0||r.theatre.distanceKm>=res[i-1].theatre.distanceKm),'sorted by distance')
 let gapsOk = true, rangeOk = true, fmtOk = true
 for (const r of res) { const m = r.shows.map(s=>{const [h,mi]=s.time.split(':').map(Number);return h*60+mi})

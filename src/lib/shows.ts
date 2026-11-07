@@ -1,7 +1,8 @@
-import { theatres } from '../data/theatres'
-import type { Format, Show, TheatreShows } from '../data/types'
+import type { Format, Show, TheatreShows, TheatreWithDistance } from '../data/types'
 import { hashString, mulberry32, randInt, pick } from './rng'
 import { createLogger } from './debug'
+import { theatres as demoTheatres } from '../data/theatres'
+import { withDistance } from './theatres'
 const log = createLogger('shows')
 
 export const CAPACITY = 280
@@ -24,14 +25,17 @@ function makeSlots(rng:()=>number):number[]{
 const base = (f:Format)=> f==='IMAX'?300 : f==='4DX'?380 : 180
 const fillFor = (mins:number)=> mins<15*60 ? .25 : mins<18*60 ? .6 : .85
 
-/** Same (movie, city, day) -> same result, always. Theatres sorted by distance. */
-export function getShows(movieId:string, city:string, dateISO:string, movieFormats?:Format[]):TheatreShows[]{
-  const rng = mulberry32(hashString(`${movieId}|${city}|${dateISO}`))
+/**
+ * Same (movie, theatre, day) -> same shows, always. Each theatre has its OWN seed, so a theatre's
+ * times never change when the user moves and the list of nearby theatres changes. Nearest first.
+ */
+export function getShowsForTheatres(movieId:string, list:TheatreWithDistance[], dateISO:string, movieFormats?:Format[]):TheatreShows[]{
   const day = new Date(dateISO+'T12:00:00').getDay()
   const weekend = day===0 || day===6
-  const result = theatres.filter(t=>t.city===city).sort((a,b)=>a.distanceKm-b.distanceKm).map(theatre=>{
+  const result = [...list].sort((a,b)=>a.distanceKm-b.distanceKm).map(theatre=>{
+    const rng = mulberry32(hashString(`${movieId}|${theatre.id}|${dateISO}`))
     const shows:Show[] = makeSlots(rng).map(mins=>{
-      // Only formats BOTH the theatre and the movie support; fall back to the theatre's list, then 2D.
+      // Only formats BOTH the theatre and the movie support; fall back to the theatre's list.
       const options = theatre.formats.filter(f=>!movieFormats||movieFormats.includes(f))
       const format = pick(rng, options.length ? options : theatre.formats)
       const fillRatio = Math.min(.98, fillFor(mins)+rng()*.15)
@@ -43,6 +47,20 @@ export function getShows(movieId:string, city:string, dateISO:string, movieForma
     })
     return { theatre, shows }
   })
-  log('getShows', { movieId, city, dateISO, theatres: result.length, shows: result.reduce((n,r)=>n+r.shows.length,0) })
+  log('getShowsForTheatres', { movieId, dateISO, theatres: result.length, shows: result.reduce((n,r)=>n+r.shows.length,0) })
   return result
+}
+
+/** Show id = movieId_theatreId_YYYY-MM-DD_HHMM. Returns null if malformed. */
+export function parseShowId(id:string){
+  const m = /^([^_]+)_([^_]+)_(\d{4}-\d{2}-\d{2})_(\d{4})$/.exec(id)
+  return m ? { movieId:m[1], theatreId:m[2], date:m[3], hhmm:m[4] } : null
+}
+/** Rebuilds a DEMO-theatre show from its id (refresh / shared link). Live OpenStreetMap venues can't be rebuilt without the store. */
+export function findShowById(id:string):{ show:Show; theatre:TheatreWithDistance }|null{
+  const p = parseShowId(id); if(!p) return null
+  const t = demoTheatres.find(x=>x.id===p.theatreId); if(!t) return null
+  const row = getShowsForTheatres(p.movieId, withDistance([t], t), p.date)[0]  // distance 0: ids/times don't depend on it
+  const show = row?.shows.find(s=>s.id===id)
+  return show ? { show, theatre:row.theatre } : null
 }

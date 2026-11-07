@@ -6,10 +6,11 @@ Upload this file (or the repo) at the start of each new chat so work continues f
 |-----|-------|--------|
 | 1 | R0 skeleton: Vite+React+TS, Tailwind tokens, routes, Zustand, dummy data, header/footer | ✅ Done |
 | 2 | Movies filters, Movie page layout, seeded RNG + showtimes engine, theatre board | ✅ Done |
-| 3 | Timeline showtimes, date strip, format filters, smart pick | ⬜ |
-| 4 | 3D hall v1: floor, walls, screen, instanced seats, selection | ⬜ |
+| 3 | Timeline showtimes, date strip, format filters, smart pick (+ location: GPS / place search / nearest cinemas) | ✅ Done |
+| 3b | Real cinema database (your CSV, 228 venues) replaces the fictional theatres; city/state/PIN search; live-OSM merge | ✅ Done |
+| 4 | 3D hall v1: floor, walls, screen, instanced seats, selection | ✅ Done (visual check by you pending) |
 | 5 | Camera presets, clamp, view-from-seat, auto tour, Best seats | ⬜ |
-| 6 | Panorama 3D hero | ⬜ |
+| 6 | Panorama 3D hero (entry page — match the reference screenshot; rename to Cineverse) | ⬜ |
 | 7 | Trailer-first movie page, Lenis + GSAP | ⬜ |
 | 8 | Snacks, review, mock pay, QR ticket, My tickets | ⬜ |
 | 9 | Polish, accessibility, 2D fallback | ⬜ |
@@ -46,5 +47,48 @@ Upload this file (or the repo) at the start of each new chat so work continues f
 - `node scripts/sync.mjs <unzipped cinehall folder>` copies a new daily zip into the repo (keeps .git/node_modules)
 - `npm run ship -- "Day N: message"` runs build + tests + checks, then commits and pushes (stops if anything fails)
 
-## Next (Day 3)
-Colour-coded timeline chips by availability (green >50% free, amber 20–50%, red <20%), "✦ Smart pick" badge (distance + availability + format), hold/past-show handling for today, polish of the theatre board.
+## Day 3 — done
+**Timeline showtimes + Smart pick**
+- `ShowChip`: colour by seats left — green >50% free, amber 20–50%, red <20% — plus a text label (colour-blind safe); shows that already started today are greyed/struck-through and not clickable (`useNow` refreshes every minute)
+- Mini 09:00–23:30 timeline bar under each theatre (dots use the same `levelOf` colours)
+- `lib/availability.ts`: `levelOf`, `hasStarted`, `smartPick` (45% distance, 40% seats left in best upcoming show, 15% premium format; ties → nearer). Badges: "✦ Smart pick" (with reasons) and "Nearest"
+- Clicking a chip saves the show + theatre in the store (`selectedShow/selectedTheatre`) → `SeatsStub` displays them (Day 4 reads the same)
+- Bug found by tests and fixed: 80%-full shows were classed "almost full" because of float rounding (0.19999…)
+
+**Location (new feature)**
+- Header `LocationPicker`: (1) "Use my current location" — browser permission prompt only after the click; (2) search any place (Mumbai, Durgapur, area, pincode) via OpenStreetMap Nominatim; (3) demo cities; "Clear my location"
+- GPS or search → REAL cinemas near that point from OpenStreetMap (Overpass `amenity=cinema`), nearest first, radius 10/25/50 km. Cinema NAMES/LOCATIONS are real; showtimes, prices, availability and screen formats are demo (formats derived from the id)
+- If the live lookup fails: near a demo city → demo theatres + notice; elsewhere → clear error with "Try again"
+- Friendly messages for permission denied / unavailable / timeout / unsupported / non-https
+- `lib/geo.ts`, `lib/distance.ts`, `lib/theatres.ts`, `hooks/useNearbyTheatres.ts`; OSM attribution in the footer
+- **Shows are now seeded per theatre** (`movie|theatreId|date`) so a theatre's times don't change when the nearby list changes. Old `getShows(movie, city, …)` replaced by `getShowsForTheatres(movie, theatres, date, formats)`
+- Location (label + coordinates) is saved only in this browser's localStorage (key `cinehall-store`); store version bumped to 2 (old saved data is migrated safely)
+- Removed a stray folder literally named `src/{data,lib,store,pages,components,styles}` (from an early mkdir mistake) — delete it from your repo too if it exists
+
+**Verification:** `npm test` 43 tests (engine, geo parsing/errors with mocked network, GPS success/denied, search, fallback, UI flows); `npm run check` 9 rules; `npm run build` passes.
+**NOT verified (no browser / internet APIs from my environment):** real GPS prompt, live Nominatim + Overpass calls (CORS, rate limits, coverage of small towns — OSM may list few or no cinemas in some places), visual look on phone and desktop.
+
+## Day 3b — real cinema database (done)
+- `data/indian_cinema_database.csv` (yours, unchanged) is the source of truth → `npm run data:build` → `src/data/cinemas.generated.ts` (validated: unique ids, required fields, PIN format, city centres). Fictional theatres are gone everywhere.
+- All 38 cities have centre coordinates (`data/city-centers.json`); venues show "In Durgapur" / "≈ N km" until exact coordinates exist → `npm run geocode` (run on your computer) fills `data/cinema-coordinates.csv`. See `docs/DATA.md`.
+- Location picker: type a city, state or PIN code → instant offline results ("713103" → Bardhaman); popular cities (West Bengal first); GPS/search merge database + live OpenStreetMap cinemas (`mergeVenues`)
+- Default location is now Kolkata, West Bengal. Venue cards show area, city, screens (when known), chain venues get demo formats.
+- Verified against live ticketing listings during this work: Durgapur, Asansol, Bardhaman, Siliguri and Kolkata venues in your CSV match.
+
+## Day 4 — 3D seat picker (done in code; visual check pending)
+- `lib/hall.ts`: 280-seat layout = `CAPACITY` (Premium recliners A–B in couple pairs 16, Gold C–H 96, Silver J–N 90, Balcony P–R 78, wheelchair spaces J1/J18), metres-based positions, deterministic sold seats from `show.seed` (couples sell together), `clampToHall` camera safety
+- `lib/pricing.ts` (category + format, weekend +10%, fee ₹30/ticket, GST 18% on fee; cheapest seat == `show.priceFrom`), `lib/selection.ts` (pairs, max 10, sold, 8-min hold helpers)
+- `three/HallScene.tsx` real 3D hall: stepped floor, acoustic walls, ceiling baffles, balcony slab + rail, curved-free 16:9 screen with the movie backdrop (plain glow if the image fails), sconces, aisle lights, exit signs, seats as 2 InstancedMeshes (264 + 16, one draw call each), hover/selected/sold colours, tooltip, row letters
+- `three/HallCanvas.tsx`: limited orbit controls + per-frame safety clamp, DPR cap on phones; `three/webgl.ts` detection
+- `pages/Seats.tsx`: 3D hall ⇄ 2D map toggle sharing one selection, sidebar with live price + fee + GST + total, 8:00 hold timer (expiry clears seats), max-10 and sold-seat messages, mobile layout, no-WebGL / 3D-crash fallback to the 2D map, show rebuilt from the URL after refresh for database cinemas
+- Three.js is lazy-loaded (separate 229 KB gzip chunk) — only the seat picker pays for it; main bundle 84 KB gzip
+- Tests: 117 passing. `scene.test.tsx` renders the REAL scene graph with @react-three/test-renderer (counts, colours, click/hover/drag handling); `seats.test.tsx` covers selection, pairs, sold, max 10, expiry, countdown, show switching, 3D↔2D sync, crash fallback
+- **NOT verified (no GPU/browser here):** how the hall actually looks (lighting, proportions, seat colours), 3D touch behaviour on a phone, real frame rate. Expect 1–2 rounds of visual tweaks — send a screenshot.
+- Known limits: camera presets / from-my-seat / auto tour / Best seats = Day 5; the snacks route is still a placeholder (Day 8)
+
+### Housekeeping
+- Delete `src/pages/SeatsStub.tsx` from your repo (replaced by `pages/Seats.tsx`; sync does not delete files).
+- `package.json` changed (three, @react-three/fiber, drei, test libs) → run `npm install` after syncing.
+
+## Next (Day 5)
+Camera presets (Overview, From stage, Balcony, Bird's eye), "From my seat" view, auto tour, straight-line camera moves, ✦ Best N seats (quantity + category).

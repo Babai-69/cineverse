@@ -8,7 +8,9 @@ npm test         # UI tests
 npm run check    # showtimes engine rules
 npm run build    # typecheck + production build
 ```
-See `docs/DEBUGGING.md` for the code map and troubleshooting.
+See `docs/DEBUGGING.md` for the code map and troubleshooting, `docs/DATA.md` for the cinema database.
+
+Cinema data: `data/indian_cinema_database.csv` → `npm run data:build`; exact coordinates → `npm run geocode`.
 All movie data is fictional demo data. No real payments.
 
 ## Updating from a new daily zip
