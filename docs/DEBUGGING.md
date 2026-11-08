@@ -46,6 +46,9 @@ tests/         day2.test.tsx (UI behaviour)      scripts/check-shows.ts (engine 
 | Seat picker blank / wrong | `?debug=1` logs `[cinehall:seats] pick C5 ok`. No WebGL or a 3D crash → automatic 2D map (explained on the page). Real scene: `tests/scene.test.tsx` |
 | Seat colour wrong in 3D | `seatColor()` in `three/HallScene.tsx`; 2D map colours in `components/SeatMap2D.tsx` |
 | Seat sold unexpectedly | `soldSeatIds` in `lib/hall.ts` (deterministic from `show.seed`, exactly `show.soldCount` seats) |
+| Camera button does nothing / view jumps | `three/CameraRig.tsx` (moves) + `lib/camera.ts` (poses). Presets must stay legal: `tests/camera.test.ts` fails if a pose would be moved by `clampToHall` |
+| Best seats picks odd seats | `lib/bestSeats.ts` (`SWEET_Z`, `CENTRE_WEIGHT`, `BALCONY_PENALTY`); `tests/bestseats.test.ts` |
+| Hall decor looks wrong / too bright | `three/Decor.tsx` (each element is one block); it is additive: delete `<Decor/>` in `HallScene.tsx` to see the old look |
 | Camera inside a wall | `clampToHall` in `lib/hall.ts` (has a fuzz test); tune HALL_DIMS |
 | A cinema is missing / wrong place | Edit the CSV → `npm run data:build`; exact position → `npm run geocode` |
 | Wrong colour on a chip | One source of truth: `levelOf` in `lib/availability.ts` |

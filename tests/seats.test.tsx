@@ -13,7 +13,9 @@ import { priceSummary } from '../src/lib/pricing'
 // The real WebGL canvas cannot run in jsdom (the real scene graph is tested in scene.test.tsx); this stub exposes the same props.
 vi.mock('../src/three/HallCanvas', ()=>({ default:(p:any)=>{
   if ((globalThis as any).__crash3d) throw new Error('boom')
-  return <div data-testid="hall3d"><button onClick={()=>p.onSeatClick('H8')}>stub-seat-H8</button><span data-testid="stub-selected">{p.selectedIds.join(',')}</span></div> } }))
+  return <div data-testid="hall3d" data-goal={JSON.stringify(p.cameraGoal ?? null)} data-tour={String(!!p.tour)} data-reduced={String(!!p.reducedMotion)}>
+    <button onClick={()=>p.onSeatClick('H8')}>stub-seat-H8</button><button onClick={()=>p.onUserMove?.()}>stub-user-move</button>
+    <span data-testid="stub-selected">{p.selectedIds.join(',')}</span></div> } }))
 
 const theatre = withDistance(theatres.filter(t=>t.id==='c64'), { lat:22.57, lng:88.36 })[0]           // INOX: Quest Mall, Kolkata
 const show = getShowsForTheatres('m1',[theatre],'2026-11-10')[0].shows[0]
@@ -130,5 +132,96 @@ describe('From the movie page to the seat picker', () => {
     await userEvent.click(link)
     expect(await screen.findByTestId('seatmap2d')).toBeInTheDocument()
     expect(screen.getByTestId('selected-show')).toHaveTextContent(useBooking.getState().selectedTheatre!.name)
+  })
+})
+
+const goal = ()=>JSON.parse(screen.getByTestId('hall3d').getAttribute('data-goal')!)
+const btn = (name:RegExp|string)=>screen.getByRole('button',{name})
+
+describe('✦ Best seats', () => {
+  it('finds the best 2 seats next to each other, selects exactly those and tells the user', async () => {
+    await open()
+    await userEvent.click(btn(/Find best 2 seats/))
+    const picked = useBooking.getState().seats
+    expect(picked).toHaveLength(2)
+    expect(picked[0][0]).toBe(picked[1][0])                                                       // same row
+    expect(Math.abs(Number(picked[0].slice(1)) - Number(picked[1].slice(1)))).toBe(1)             // side by side
+    picked.forEach(id=>expect(sold.has(id)).toBe(false))
+    expect(await screen.findByText(/^Best 2 seats: /)).toBeInTheDocument()
+    expect(screen.getByRole('timer')).toBeInTheDocument()                                          // hold timer started
+  })
+  it('the stepper changes the count (1–10) and the button label', async () => {
+    await open()
+    await userEvent.click(btn('More seats')); expect(btn(/Find best 3 seats/)).toBeInTheDocument()
+    await userEvent.click(btn('Fewer seats')); await userEvent.click(btn('Fewer seats')); expect(btn(/Find best 1 seat$/)).toBeInTheDocument()
+    expect(btn('Fewer seats')).toBeDisabled()
+    for (let i=0;i<9;i++) await userEvent.click(btn('More seats'))
+    expect(btn('More seats')).toBeDisabled(); expect(btn(/Find best 10 seats/)).toBeInTheDocument()
+  })
+  it('area filter: Premium gives recliner seats; replaces a previous selection instead of adding to it', async () => {
+    await open()
+    await userEvent.click(seatBtn(available(1, id=>/^[J-N]/.test(id))[0]))
+    await userEvent.selectOptions(screen.getByLabelText('Seat area'),'Premium')
+    await userEvent.click(btn(/Find best 2 seats/))
+    const picked = useBooking.getState().seats
+    expect(picked).toHaveLength(2); picked.forEach(id=>expect(['A','B']).toContain(id[0]))
+  })
+  it('explains when no group fits (10 recliners together) and keeps the current selection', async () => {
+    await open()
+    await userEvent.click(seatBtn(available(1)[0])); const before = useBooking.getState().seats
+    await userEvent.selectOptions(screen.getByLabelText('Seat area'),'Premium')
+    for (let i=0;i<8;i++) await userEvent.click(btn('More seats'))
+    await userEvent.click(btn(/Find best 10 seats/))
+    expect(await screen.findByText(/No 10 seats together in Premium\. The most together is 4/)).toBeInTheDocument()
+    expect(useBooking.getState().seats).toEqual(before)
+  })
+  it('works in the 3D view too (same panel, same selection)', async () => {
+    (hasWebGL as any).mockReturnValue(true)
+    renderAt(path); await screen.findByTestId('hall3d')
+    await userEvent.click(btn(/Find best 2 seats/))
+    await waitFor(()=>expect(screen.getByTestId('stub-selected').textContent!.split(',')).toHaveLength(2))
+  })
+})
+
+describe('camera buttons (3D view)', () => {
+  const open3d = async()=>{ (hasWebGL as any).mockReturnValue(true); renderAt(path); await screen.findByTestId('hall3d') }
+  it('shows the four presets, From my seat (disabled until a seat is picked) and the tour', async () => {
+    await open3d()
+    for (const n of ['Overview','From stage','Balcony',"Bird's eye"]) expect(btn(n)).toBeInTheDocument()
+    expect(btn(/From my seat/)).toBeDisabled(); expect(btn('Auto tour')).toBeInTheDocument()
+    expect(screen.getByRole('toolbar',{name:'Camera views'})).toBeInTheDocument()
+  })
+  it('a preset sends a new camera goal to the hall and highlights its button; each click is a new goal', async () => {
+    await open3d()
+    expect(btn('Overview')).toHaveAttribute('aria-pressed','true')                                  // default
+    await userEvent.click(btn('From stage'))
+    expect(goal()).toMatchObject({ kind:'preset', preset:'stage' }); expect(btn('From stage')).toHaveAttribute('aria-pressed','true'); expect(btn('Overview')).toHaveAttribute('aria-pressed','false')
+    const id1 = goal().id; await userEvent.click(btn('From stage')); expect(goal().id).toBeGreaterThan(id1)   // re-click flies back
+    await userEvent.click(btn("Bird's eye")); expect(goal().preset).toBe('bird')
+  })
+  it('From my seat flies to the LAST selected seat and is labelled with it', async () => {
+    await open3d()
+    await userEvent.click(btn(/Find best 3 seats|More seats/)); await userEvent.click(btn(/Find best 3 seats/))
+    const seats = useBooking.getState().seats; const last = seats[seats.length-1]
+    const b = await screen.findByRole('button',{name:new RegExp(`From seat ${last}`)}); expect(b).toBeEnabled()
+    await userEvent.click(b); expect(goal()).toMatchObject({ kind:'seat', seatId:last }); expect(b).toHaveAttribute('aria-pressed','true')
+    expect(screen.getByText(/look around from your seat/)).toBeInTheDocument()
+  })
+  it('auto tour toggles on/off; a preset click or the visitor grabbing the hall stops it', async () => {
+    await open3d()
+    await userEvent.click(btn('Auto tour')); expect(screen.getByTestId('hall3d')).toHaveAttribute('data-tour','true'); expect(btn('Stop tour')).toBeInTheDocument()
+    await userEvent.click(btn('Stop tour')); expect(screen.getByTestId('hall3d')).toHaveAttribute('data-tour','false')
+    await userEvent.click(btn('Auto tour')); await userEvent.click(btn('Balcony')); expect(screen.getByTestId('hall3d')).toHaveAttribute('data-tour','false')
+    await userEvent.click(btn('Auto tour')); await userEvent.click(screen.getByText('stub-user-move')); expect(screen.getByTestId('hall3d')).toHaveAttribute('data-tour','false')
+    expect(btn('Balcony')).toHaveAttribute('aria-pressed','false')                                  // free camera: no preset is highlighted
+  })
+  it('prefers-reduced-motion: no auto tour button, and moves are told to be instant', async () => {
+    const orig = window.matchMedia; (window as any).matchMedia = (q:string)=>({ matches:/reduced-motion/.test(q), media:q, addEventListener(){}, removeEventListener(){}, addListener(){}, removeListener(){}, onchange:null, dispatchEvent:()=>false })
+    await open3d()
+    expect(screen.queryByRole('button',{name:'Auto tour'})).not.toBeInTheDocument(); expect(screen.getByTestId('hall3d')).toHaveAttribute('data-reduced','true')
+    ;(window as any).matchMedia = orig
+  })
+  it('camera bar is not shown in the 2D map', async () => {
+    renderAt(path); await screen.findByTestId('seatmap2d'); expect(screen.queryByRole('toolbar',{name:'Camera views'})).not.toBeInTheDocument()
   })
 })

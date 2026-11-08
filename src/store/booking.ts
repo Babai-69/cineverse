@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Show, Ticket, TheatreWithDistance, UserLocation } from '../data/types'
-import { toggleSeat, HOLD_MS, type SelectionError } from '../lib/selection'
+import { toggleSeat, HOLD_MS, MAX_SEATS, type SelectionError } from '../lib/selection'
 
 /** Default = Kolkata (largest city in the database). Location is saved on THIS device only (localStorage), never sent anywhere by us. */
 export const DEFAULT_LOCATION:UserLocation = { lat:22.5726, lng:88.3639, label:'Kolkata, West Bengal', source:'city' }
@@ -17,6 +17,7 @@ type State = {
   selectShow:(show:Show, theatre:TheatreWithDistance)=>void
   pickSeat:(id:string, sold:ReadonlySet<string>)=>SelectionError|undefined
   resetSeatsFor:(showId:string)=>void; clearSeats:()=>void
+  replaceSeats:(ids:string[])=>void      // used by ✦ Best seats: swap the whole selection at once
 }
 export const useBooking = create<State>()(persist((set,get)=>({
   location:DEFAULT_LOCATION, language:null, selectedMovieId:null, snacks:{}, seats:[], seatsShowId:null, holdExpiresAt:null,
@@ -31,6 +32,7 @@ export const useBooking = create<State>()(persist((set,get)=>({
   },
   resetSeatsFor:(showId)=>set({ seats:[], seatsShowId:showId, holdExpiresAt:null }),
   clearSeats:()=>set({ seats:[], holdExpiresAt:null }),
+  replaceSeats:(ids)=>set(s=>({ seats:ids.slice(0,MAX_SEATS), holdExpiresAt: ids.length===0 ? null : (s.holdExpiresAt ?? Date.now()+HOLD_MS) })),
 }),{ name:'cinehall-store', version:2,
   partialize:(s)=>({ tickets:s.tickets, location:s.location, selectedShow:s.selectedShow, selectedTheatre:s.selectedTheatre }),
   migrate:(old:any)=>({ tickets:old?.tickets ?? [], location:DEFAULT_LOCATION, selectedShow:null, selectedTheatre:null }) as any }))

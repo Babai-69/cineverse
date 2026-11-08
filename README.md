@@ -10,6 +10,8 @@ npm run build    # typecheck + production build
 ```
 See `docs/DEBUGGING.md` for the code map and troubleshooting, `docs/DATA.md` for the cinema database.
 
+3D hall controls: camera presets, From my seat, Auto tour, ✦ Best seats (see PROGRESS.md, Day 5).
+
 Trailers on the 3D screen: `docs/TRAILERS.md`. Real-browser 3D check: `npm run smoke` (see `docs/DEBUGGING.md`).
 
 Cinema data: `data/indian_cinema_database.csv` → `npm run data:build`; exact coordinates → `npm run geocode`.

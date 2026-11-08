@@ -11,6 +11,7 @@ import { Html } from '@react-three/drei'
 import type { ThreeEvent } from '@react-three/fiber'
 import { HALL, HALL_DIMS, type SeatDef } from '../lib/hall'
 import { buildSeatGeometry } from './seatGeometry'
+import Decor from './Decor'
 
 export const SEAT_COLORS = { Silver:'#3b4256', Gold:'#7a6330', Premium:'#7c5cff', Balcony:'#2f6f7a', selected:'#f5b942', sold:'#2b2b36', hover:'#9fb0e0', accessible:'#2dd4bf' } as const
 const D = HALL_DIMS
@@ -28,6 +29,7 @@ export type HallSceneProps = {
   trailerVideo?:HTMLVideoElement|null     // played on the screen as a live video texture
   trailerPlaying?:boolean                // show the video layer only once frames are flowing
   glow?:string            // movie colour, lights the hall from the screen
+  sparkles?:boolean       // floating dust in the projector beam (off on phones / in tests)
   labels?:boolean         // row letters (drei <Html>, DOM based) — off in tests
 }
 
@@ -168,7 +170,7 @@ function SeatInstances({ seats, recliner, soldIds, selected, hoveredId, onHover,
   </instancedMesh>
 }
 
-export default function HallScene({ soldIds, selectedIds, hoveredId, onHover, onSeatClick, backdropUrl, trailerVideo, trailerPlaying, glow='#8fa0ff', labels=true }:HallSceneProps){
+export default function HallScene({ soldIds, selectedIds, hoveredId, onHover, onSeatClick, backdropUrl, trailerVideo, trailerPlaying, glow='#8fa0ff', labels=true, sparkles=false }:HallSceneProps){
   const selected = useMemo(()=>new Set(selectedIds),[selectedIds])
   const standard = useMemo(()=>HALL.seats.filter(s=>!s.recliner),[]), recliners = useMemo(()=>HALL.seats.filter(s=>s.recliner),[])
   return <>
@@ -178,6 +180,7 @@ export default function HallScene({ soldIds, selectedIds, hoveredId, onHover, on
     <pointLight position={[0,D.screenY,D.screenZ+3]} color={glow} intensity={90} distance={30} decay={2}/>
     <HallShell/>
     <Screen backdropUrl={backdropUrl} trailerVideo={trailerVideo} trailerPlaying={trailerPlaying}/>
+    <Decor glow={glow} sparkles={sparkles}/>
     <SeatInstances seats={standard} recliner={false} soldIds={soldIds} selected={selected} hoveredId={hoveredId} onHover={onHover} onSeatClick={onSeatClick}/>
     <SeatInstances seats={recliners} recliner soldIds={soldIds} selected={selected} hoveredId={hoveredId} onHover={onHover} onSeatClick={onSeatClick}/>
     {labels && HALL.rows.map(r=>

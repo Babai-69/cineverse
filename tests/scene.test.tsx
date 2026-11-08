@@ -69,3 +69,23 @@ describe('trailer on the screen', () => {
     expect(screenLayer(on)[0].instance.material.map.isVideoTexture).toBe(true); await on.unmount()
   })
 })
+
+describe('premium decor', () => {
+  it('mounts with the scene (without canvases it simply skips the textured parts) and does not change the seat meshes', async () => {
+    const r = await ReactThreeTestRenderer.create(<HallScene {...base}/>)
+    const decor = r.scene.findAll((n:any)=>n.instance.name==='premium-decor'); expect(decor).toHaveLength(1)
+    expect(seatMeshes(r).map(countOf).sort((a:number,b:number)=>a-b)).toEqual([16, 264])       // seats untouched
+    await r.unmount()
+  })
+  it('is not clickable: none of its meshes can catch pointer rays (seats behind/in front stay clickable)', async () => {
+    const r = await ReactThreeTestRenderer.create(<HallScene {...base}/>)
+    const group = r.scene.findAll((n:any)=>n.instance.name==='premium-decor')[0].instance
+    const meshes:any[] = []; group.traverse((o:any)=>{ if (o.isMesh) meshes.push(o) })
+    expect(meshes.length).toBeGreaterThan(8)
+    const hits:any[] = []; meshes.forEach(m=>m.raycast({ ray:{}, near:0, far:1e9, camera:{} } as any, hits)); expect(hits).toEqual([])
+    await r.unmount()
+  })
+  it('also mounts with floating dust enabled', async () => {
+    const r = await ReactThreeTestRenderer.create(<HallScene {...base} sparkles/>); expect(r.scene.findAll((n:any)=>n.instance.name==='premium-decor')).toHaveLength(1); await r.unmount()
+  })
+})

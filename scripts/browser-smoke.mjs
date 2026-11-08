@@ -2,7 +2,8 @@
 /**
  * Real-browser smoke test of the 3D seat picker (the unit tests have no GPU, so they cannot see a blank canvas).
  * Checks: the canvas actually DRAWS, no shader errors, hovering a seat shows a tooltip, a click selects exactly one
- * seat, dragging to look around selects nothing, no uncaught page errors. Saves a screenshot.
+ * seat, dragging to look around selects nothing, every camera button (presets, Best seats, From my seat, Auto tour)
+ * works without errors and keeps the canvas drawing, no uncaught page errors. Saves a screenshot.
  *
  *   1. npm i -D puppeteer-core          (one time; uses YOUR installed Chrome/Edge)
  *   2. npm run dev                      (keep it running in another terminal)
@@ -56,6 +57,15 @@ else {
   await page.mouse.move(box.x+box.width*.5, box.y+box.height*.3); await page.mouse.down(); await page.mouse.move(box.x+box.width*.62, box.y+box.height*.25,{steps:8}); await page.mouse.up(); await wait(400)
   if (await selected() !== after) problems.push('drag: dragging to look around changed the selection')
 }
+// Day 5: camera buttons, best seats, from my seat, tour
+const press = label=>page.evaluate(l=>{ const b = [...document.querySelectorAll('button')].find(x=>x.textContent.trim().startsWith(l)); if (b && !b.disabled){ b.click(); return true } return false }, label)
+for (const label of ['From stage','Balcony',"Bird's eye",'Overview']) { if (!(await press(label))) problems.push(`camera button "${label}" not found/enabled`); await wait(1900) }
+const drawsBefore = (await page.evaluate(()=>window.__gl)).draws
+if (!(await press('✦ Find best'))) problems.push('"Find best seats" button not found'); await wait(500)
+if (await selected() < 1) problems.push('Best seats did not select any seat')
+if (!(await press('From seat'))) problems.push('"From my seat" not available after Best seats'); await wait(1900)
+if (await press('Auto tour')) { await wait(1500); await press('Stop tour') }
+if ((await page.evaluate(()=>window.__gl)).draws <= drawsBefore) problems.push('the canvas stopped drawing after using the camera buttons')
 writeFileSync(OUT, await page.screenshot())
 console.log(`draw calls: ${gl.draws} · hover/click seat: ${hit ? hit[2] : 'NOT FOUND'} · screenshot: ${OUT}`)
 if (warnings.length) console.log('console errors (informational):', [...new Set(warnings)].slice(0,3))

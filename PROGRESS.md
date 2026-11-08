@@ -9,7 +9,7 @@ Upload this file (or the repo) at the start of each new chat so work continues f
 | 3 | Timeline showtimes, date strip, format filters, smart pick (+ location: GPS / place search / nearest cinemas) | ✅ Done |
 | 3b | Real cinema database (your CSV, 228 venues) replaces the fictional theatres; city/state/PIN search; live-OSM merge | ✅ Done |
 | 4 | 3D hall v1: floor, walls, screen, instanced seats, selection | ✅ Done (first version had a blank-canvas bug — fixed and verified in a real browser, see Day 4 fix) |
-| 5 | Camera presets, clamp, view-from-seat, auto tour, Best seats | ⬜ |
+| 5 | Camera presets, clamp, view-from-seat, auto tour, Best seats (+ premium hall look) | ✅ Done |
 | 6 | Panorama 3D hero (entry page — match the reference screenshot; rename to Cineverse) | ⬜ |
 | 7 | Trailer-first movie page, Lenis + GSAP | ⬜ |
 | 8 | Snacks, review, mock pay, QR ticket, My tickets | ⬜ |
@@ -99,5 +99,18 @@ Upload this file (or the repo) at the start of each new chat so work continues f
 - Verified in real Chromium (desktop + 390 px phone): draws ~1000 calls/frame, hover tooltip "Row G · Seat 8 · Gold · ₹260 · Available", click selects exactly one seat, drag to orbit selects nothing, price panel math correct (Gold 260 + 2 recliners 900 + fee 90 + GST 16 = ₹1266), no console errors. `npm test` 128 passing, `npm run check` 9 rules, production build 84 KB main + 228 KB lazy 3D chunk.
 - Still open: on a portrait phone the wide screen is slightly cropped (Day 10 mobile tuning); camera presets / from-my-seat / tour / Best seats = Day 5; software-rendered frame rate here says nothing about real phones.
 
-## Next (Day 5)
-Camera presets (Overview, From stage, Balcony, Bird's eye), "From my seat" view, auto tour, straight-line camera moves, ✦ Best N seats (quantity + category).
+## Day 5 — camera, Best seats, premium hall (done, verified in a real browser)
+**Camera (`lib/camera.ts`, `three/CameraRig.tsx`, `components/CameraBar.tsx`)**
+- Buttons over the 3D hall: **Overview · From stage · Balcony · Bird's eye · From my seat · Auto tour**. Presets are all legal positions (tested); the balcony preset is a seated-height view from the middle of the balcony.
+- **Straight-line moves** (0.7–1.7 s, eased) — curved paths would cut through walls; every intermediate point is clamped inside the hall (fuzz-tested across all preset/seat pairs). The camera lands exactly on its target pose (fixed a float drift bug found by tests).
+- **From my seat**: eye height 1.15 m above the LAST selected seat, looking at the screen centre; dragging turns your head (tiny orbit radius, no zoom). Works for all 280 seats (tested).
+- **Auto tour**: Overview → From stage → Balcony → Bird's eye, 4.5 s each, loops; grabbing the hall or clicking any view stops it. `prefers-reduced-motion`: no tour button, moves are instant.
+**✦ Best seats (`lib/bestSeats.ts`, `components/BestSeatsPanel.tsx`)**
+- Choose 1–10 seats and an area (any/Premium/Gold/Silver/Balcony) → the best group side by side: never a sold seat, never across an aisle, never a wheelchair space. Score = distance from the row centre ×1.2 + distance from the sweet-spot row (60% of the way back); balcony rows count 30% further away (last choice). Replaces the current selection (can never exceed 10 — bug found by tests: 11 balcony seats used to fit). If nothing fits it says the most that can sit together. Empty hall, 2 seats → H8–H9.
+**Premium hall look (`three/Decor.tsx`) — purely additive, nothing existing was changed**
+- Gold frame round the screen, glow behind it in the movie's colour, CINEHALL sign (CINE in gold, HALL in white), violet velvet curtains with gold trim, gold cove light round the ceiling, gold wall inlays, starlit ceiling, soft projector beam, floating dust (off on phones). All drawn in code (no downloads), none of it clickable (tested), screen vignette overlay.
+**Verification**: `npm test` 165 passing; `npm run smoke` passes on the production build (clicks every camera button, Best seats, From my seat, Auto tour; canvas keeps drawing); screenshots reviewed for every preset, seat view, look-around and a phone-size layout. Bundle: 84 KB main, 232 KB lazy 3D chunk.
+**Not verified / known**: software rendering here says nothing about real frame rates on phones (decor is ~13 meshes, dust is off on phones); the sign uses your site font (Bebas Neue) once it has loaded, otherwise a fallback; portrait-phone cropping of the wide screen still for Day 10.
+
+## Next (Day 6)
+Panorama 3D hero (the curved ring of cinema screens from your reference screenshot) on the entry page; rename to Cineverse if you want it.
