@@ -29,15 +29,16 @@ describe('toggleSeat', () => {
     const a = toggleSeat([], 'C5', none); expect(a.seats).toEqual(['C5'])
     expect(toggleSeat(a.seats,'C5',none).seats).toEqual([])
   })
-  it('couple recliners select and deselect as a pair', () => {
-    const a = toggleSeat([], 'A3', none); expect(a.seats.sort()).toEqual(['A3','A4'])
-    expect(toggleSeat(a.seats,'A4',none).seats).toEqual([])
+  it('a recliner is selected and deselected on its own (no pairing)', () => {
+    const a = toggleSeat([], 'A3', none); expect(a.seats).toEqual(['A3'])
+    const b = toggleSeat(a.seats, 'A4', none); expect(b.seats).toEqual(['A3','A4'])
+    expect(toggleSeat(b.seats,'A3',none).seats).toEqual(['A4'])
   })
   it('blocks sold seats', () => { expect(toggleSeat([], 'C5', new Set(['C5']))).toEqual({ seats:[], error:'sold' }) })
   it('enforces the max of 10 (and a pair that would exceed it)', () => {
     const ten = Array.from({length:MAX_SEATS},(_,i)=>`H${i+1}`)
     expect(toggleSeat(ten,'G1',none)).toEqual({ seats:ten, error:'max' })
-    const nine = ten.slice(0,9); expect(toggleSeat(nine,'A1',none).error).toBe('max')
+    const nine = ten.slice(0,9); expect(toggleSeat(nine,'A1',none).seats).toHaveLength(10)   // the 10th seat is fine
   })
   it('unknown seat id is rejected', () => { expect(toggleSeat([], 'Z9', none).error).toBe('unknown') })
 })

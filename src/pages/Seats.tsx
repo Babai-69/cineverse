@@ -5,7 +5,7 @@
  */
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Box, Grid3x3 } from 'lucide-react'
+import { Box, Grid3x3, Pause, Play, Volume2, VolumeX, Film } from 'lucide-react'
 import { movies } from '../data/movies'
 import { findShowById } from '../lib/shows'
 import { soldSeatIds } from '../lib/hall'
@@ -15,6 +15,8 @@ import { createLogger } from '../lib/debug'
 import { useBooking } from '../store/booking'
 import { hasWebGL } from '../three/webgl'
 import SafeBoundary from '../three/SafeBoundary'
+import { useTrailerVideo } from '../hooks/useTrailerVideo'
+import TrailerModal from '../components/TrailerModal'
 import SeatMap2D from '../components/SeatMap2D'
 import BookingSidebar from '../components/BookingSidebar'
 import Chip from '../components/Chip'
@@ -44,6 +46,9 @@ export default function Seats(){
   const [webgl] = useState(()=>hasWebGL())
   const [view,setView] = useState<'3d'|'2d'>(()=>hasWebGL() ? '3d' : '2d')
   const [crashed,setCrashed] = useState(false)
+  const [trailerOpen,setTrailerOpen] = useState(false)
+  const use3d = view==='3d' && webgl && !crashed
+  const trailer = useTrailerVideo(movie?.trailerVideo, use3d)      // plays on the 3D screen only while the 3D hall is shown
   const priceOf = useCallback((id:string)=>{ const s = HALL.byId.get(id); return s && show ? seatPrice(s.category, show.format, show.date) : 0 },[show])
 
   const onSeatClick = useCallback((id:string)=>{
@@ -57,7 +62,6 @@ export default function Seats(){
     <p className="mt-2 text-muted">We could not find this showtime. It may have been opened from a live-lookup cinema before the page was refreshed.</p>
     <Link to="/movies" className="btn mt-6">Pick a movie and showtime</Link></section>
 
-  const use3d = view==='3d' && webgl && !crashed
   return <section className="mx-auto max-w-[1680px] px-4 pb-28 pt-6 md:px-8 lg:pb-10">
     <header className="mb-4 flex flex-wrap items-end justify-between gap-3" data-testid="selected-show">
       <div><Link to={`/movie/${movie.id}`} className="text-sm text-muted hover:text-white">← {movie.title}</Link>
@@ -78,16 +82,28 @@ export default function Seats(){
               <SafeBoundary fallback={null} onError={()=>setCrashed(true)}>
                 <Suspense fallback={<div className="grid h-full place-items-center text-muted">Loading 3D hall…</div>}>
                   <HallCanvas soldIds={soldIds} selectedIds={seats} hoveredId={hovered} onHover={setHovered} onSeatClick={onSeatClick}
-                    backdropUrl={movie.backdrop} glow={movie.dominantColor} priceOf={priceOf} lowPower={typeof window!=='undefined' && window.innerWidth<768}/>
+                    backdropUrl={movie.backdrop} glow={movie.dominantColor} priceOf={priceOf}
+                    trailerVideo={trailer.video} trailerPlaying={trailer.state==='playing'} lowPower={typeof window!=='undefined' && window.innerWidth<768}/>
                 </Suspense></SafeBoundary>
+              {trailer.video && <div className="absolute left-3 top-3 flex items-center gap-2">
+                {trailer.state==='blocked'
+                  ? <button className="btn !px-4 !py-2 text-sm" onClick={trailer.play}><Play size={14}/>Tap to play trailer</button>
+                  : <>
+                    <button className="pill flex items-center gap-1 bg-black/60 text-white" aria-label={trailer.state==='playing' ? 'Pause trailer' : 'Play trailer'} onClick={trailer.toggle}>
+                      {trailer.state==='playing' ? <Pause size={13}/> : <Play size={13}/>}{trailer.state==='playing' ? 'Pause' : 'Play'}</button>
+                    <button className="pill flex items-center gap-1 bg-black/60 text-white" aria-label={trailer.muted ? 'Unmute trailer' : 'Mute trailer'} onClick={trailer.toggleMute}>
+                      {trailer.muted ? <VolumeX size={13}/> : <Volume2 size={13}/>}{trailer.muted ? 'Muted' : 'Sound on'}</button></>}
+                {movie.trailerId && <button className="pill flex items-center gap-1 bg-black/60 text-white" onClick={()=>setTrailerOpen(true)}><Film size={13}/>Full trailer</button>}
+                {trailer.state==='error' && <span className="pill bg-black/60 text-[var(--bad)]" role="status">Trailer video could not load</span>}</div>}
               <p className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-3 py-1 text-[11px] text-muted">Drag to look around · scroll to zoom · tap a seat</p></div>
           : <SeatMap2D soldIds={soldIds} selectedIds={seats} onSeatClick={onSeatClick} priceOf={priceOf}/>}
         <ul className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted" aria-label="Seat colours">
-          {[['#3b4256','Silver'],['#7a6330','Gold'],['#7c5cff','Premium recliner (pairs)'],['#2f6f7a','Balcony'],['#f5b942','Selected'],['#17171f','Sold'],['#2dd4bf','Wheelchair space']].map(([c,t])=>
+          {[['#3b4256','Silver'],['#7a6330','Gold'],['#7c5cff','Premium recliner'],['#2f6f7a','Balcony'],['#f5b942','Selected'],['#17171f','Sold'],['#2dd4bf','Wheelchair space']].map(([c,t])=>
             <li key={t} className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm border border-white/20" style={{background:c}}/>{t}</li>)}</ul>
       </div>
       <div className="lg:sticky lg:top-20 lg:self-start">
         <BookingSidebar movie={movie} show={show} theatre={theatre} seats={seats} holdExpiresAt={holdExpiresAt}
           onRemove={onRemove} onExpire={onExpire} onContinue={()=>navigate(`/book/${show.id}/snacks`)}/></div>
-    </div></section>
+    </div>
+    {trailerOpen && movie.trailerId && <TrailerModal youtubeId={movie.trailerId} title={movie.title} onClose={()=>setTrailerOpen(false)}/>}</section>
 }

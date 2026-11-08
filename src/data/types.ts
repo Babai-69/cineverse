@@ -1,6 +1,6 @@
 export type Language = 'Tamil'|'Telugu'|'Kannada'|'Malayalam'|'Hindi'|'English'
 export type Format = '2D'|'IMAX'|'4DX'
-export type Movie = { id:string; title:string; language:Language; genres:string[]; runtime:number; certificate:'U'|'UA'|'A'; rating:number; poster:string; backdrop:string; trailerId:string; formats:Format[]; cast:string[]; synopsis:string; releaseDate:string; dominantColor:string; nowShowing:boolean }
+export type Movie = { id:string; title:string; language:Language; genres:string[]; runtime:number; certificate:'U'|'UA'|'A'; rating:number; poster:string; backdrop:string; trailerId:string; trailerVideo?:string|string[]; formats:Format[]; cast:string[]; synopsis:string; releaseDate:string; dominantColor:string; nowShowing:boolean }
 export type LatLng = { lat:number; lng:number }
 export type Theatre = {
   id:string; name:string; city:string; lat:number; lng:number; formats:Format[]; hallId:string

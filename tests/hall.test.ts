@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { HALL, HALL_CAPACITY, HALL_DIMS, soldSeatIds, clampToHall, floorYAt, seatUnits } from '../src/lib/hall'
+import { HALL, HALL_CAPACITY, HALL_DIMS, soldSeatIds, clampToHall, floorYAt } from '../src/lib/hall'
 import { CAPACITY } from '../src/lib/shows'
 
 describe('hall layout', () => {
@@ -13,11 +13,10 @@ describe('hall layout', () => {
   it('skips row letters I and O; rows in order A..R', () => {
     expect(HALL.rows.map(r=>r.row).join('')).toBe('ABCDEFGHJKLMNPQR')
   })
-  it('couple recliners pair up symmetrically (A1<->A2 …)', () => {
-    const prem = HALL.seats.filter(s=>s.category==='Premium')
-    prem.forEach(s=>expect(HALL.byId.get(s.coupleWith!)!.coupleWith).toBe(s.id))
-    expect(HALL.byId.get('A1')!.coupleWith).toBe('A2')
-    expect(HALL.seats.filter(s=>s.category!=='Premium').every(s=>!s.coupleWith)).toBe(true)
+  it('recliners are single seats: 16 of them, no pairing data, wider pitch than normal seats', () => {
+    const rec = HALL.seats.filter(s=>s.recliner)
+    expect(rec).toHaveLength(16); expect(rec.every(s=>s.category==='Premium' && !('coupleWith' in s))).toBe(true)
+    expect(HALL.seats.some(s=>(s as any).coupleWith)).toBe(false)
   })
   it('every seat is inside the walls and no two seats in a row overlap', () => {
     const half = HALL_DIMS.width/2
@@ -40,18 +39,16 @@ describe('hall layout', () => {
 })
 
 describe('soldSeatIds', () => {
-  it('is deterministic and close to soldCount', () => {
+  it('is deterministic and EXACTLY soldCount', () => {
     const a = soldSeatIds({ seed:12345, soldCount:120 }), b = soldSeatIds({ seed:12345, soldCount:120 })
-    expect([...a]).toEqual([...b]); expect(a.size).toBeGreaterThanOrEqual(120); expect(a.size).toBeLessThanOrEqual(121)
+    expect([...a]).toEqual([...b]); expect(a.size).toBe(120)
   })
   it('different shows sell different seats', () => {
     expect([...soldSeatIds({seed:1,soldCount:100})]).not.toEqual([...soldSeatIds({seed:2,soldCount:100})])
   })
-  it('couple recliners are always sold together', () => {
-    for (let seed=1; seed<30; seed++){
-      const sold = soldSeatIds({ seed, soldCount:150 })
-      for (const u of seatUnits()) if (u.length===2) expect(sold.has(u[0])).toBe(sold.has(u[1]))
-    }
+  it('recliners can be sold individually (a free recliner next to a sold one is bookable)', () => {
+    const lone = [...Array(60).keys()].some(seed=>{ const sold = soldSeatIds({ seed:seed+1, soldCount:100 }); return HALL.seats.some(s=>s.recliner && sold.has(s.id) !== sold.has(s.id.replace(/\d+$/, String(s.number%2? s.number+1 : s.number-1)))) })
+    expect(lone).toBe(true)
   })
   it('0 sold -> empty; everything sold -> all 280', () => {
     expect(soldSeatIds({seed:5,soldCount:0}).size).toBe(0); expect(soldSeatIds({seed:5,soldCount:999}).size).toBe(280)

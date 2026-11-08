@@ -3,7 +3,7 @@
  * Pure data + functions, no React/three, so it is fast to test and easy to debug.
  *
  * Coordinates: x = left/right (0 = centre), y = up, z = depth (screen at z = -14.5, back wall at z = +12).
- * Rows (front -> back): A–B Premium recliners (couple pairs) · C–H Gold · J–N Silver · P–R Balcony (raised).
+ * Rows (front -> back): A–B Premium recliners (each one is a single, individually bookable seat) · C–H Gold · J–N Silver · P–R Balcony (raised).
  * Letters I and O are skipped (look like 1 and 0).
  */
 import { mulberry32 } from './rng'
@@ -12,7 +12,7 @@ export type Category = 'Silver'|'Gold'|'Premium'|'Balcony'
 export type SeatDef = {
   id:string; row:string; number:number; category:Category
   pos:[number,number,number]          // centre of the seat on the floor of its row
-  recliner:boolean; coupleWith?:string; accessible?:boolean
+  recliner:boolean; accessible?:boolean
 }
 export type RowDef = { row:string; category:Category; y:number; z:number; seats:SeatDef[] }
 
@@ -40,7 +40,6 @@ function buildRows():RowDef[]{
       for (let n=1; n<=spec.count; n++){
         const id = `${row}${n}`
         const seat:SeatDef = { id, row, number:n, category:spec.category, pos:[+x.toFixed(3), y, z], recliner:!!spec.recliner }
-        if (spec.recliner) seat.coupleWith = `${row}${n%2===1 ? n+1 : n-1}`   // 1-2, 3-4, …
         if (row==='J' && (n===1 || n===spec.count)) seat.accessible = true     // wheelchair spaces at row ends
         seats.push(seat)
         x += pitch + (spec.aisleAfter.includes(n) ? AISLE : 0)
@@ -55,28 +54,15 @@ const seats = rows.flatMap(r=>r.seats)
 export const HALL = { rows, seats, byId:new Map(seats.map(s=>[s.id,s] as const)) }
 export const HALL_CAPACITY = seats.length
 
-/** Seats that must be sold/selected together (couple recliners), as groups of 1 or 2 ids. */
-export function seatUnits():string[][]{
-  const done = new Set<string>(), units:string[][] = []
-  for (const s of seats){
-    if (done.has(s.id)) continue
-    const unit = s.coupleWith ? [s.id, s.coupleWith] : [s.id]
-    unit.forEach(id=>done.add(id)); units.push(unit)
-  }
-  return units
-}
-
 /**
- * Which seats are already sold for a show: deterministic from show.seed, about show.soldCount seats
- * (couple recliners sell in pairs, so the real count can be 1 higher).
+ * Which seats are already sold for a show: deterministic from show.seed, exactly show.soldCount seats
+ * (capped at the hall capacity).
  */
 export function soldSeatIds(show:{ seed:number; soldCount:number }):Set<string>{
   const rng = mulberry32(show.seed ^ 0x9e3779b9)
-  const units = seatUnits()
-  for (let i=units.length-1;i>0;i--){ const j = Math.floor(rng()*(i+1)); [units[i],units[j]] = [units[j],units[i]] } // Fisher–Yates
-  const sold = new Set<string>()
-  for (const u of units){ if (sold.size>=show.soldCount) break; u.forEach(id=>sold.add(id)) }
-  return sold
+  const ids = seats.map(s=>s.id)
+  for (let i=ids.length-1;i>0;i--){ const j = Math.floor(rng()*(i+1)); [ids[i],ids[j]] = [ids[j],ids[i]] } // Fisher–Yates
+  return new Set(ids.slice(0, Math.max(0, Math.min(show.soldCount, ids.length))))
 }
 
 /** Floor height under a point (main floor steps up towards the back). Used for camera safety. */

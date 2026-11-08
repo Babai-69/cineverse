@@ -55,3 +55,17 @@ describe('HallScene (real scene graph)', () => {
     await r.unmount()
   })
 })
+
+describe('trailer on the screen', () => {
+  const screenLayer = (r:any)=>r.scene.findAll((n:any)=>n.type==='Mesh' && n.instance.geometry?.type==='PlaneGeometry' && n.instance.position.z>.01 && n.instance.position.z<.03)
+  it('no video -> no video layer; with a video -> a layer that is hidden until playing, visible when playing', async () => {
+    const none = await ReactThreeTestRenderer.create(<HallScene {...base}/>)
+    expect(screenLayer(none)).toHaveLength(0); await none.unmount()
+    const video = document.createElement('video')
+    const off = await ReactThreeTestRenderer.create(<HallScene {...base} trailerVideo={video} trailerPlaying={false}/>)
+    expect(screenLayer(off)).toHaveLength(1); expect(screenLayer(off)[0].instance.visible).toBe(false); await off.unmount()
+    const on = await ReactThreeTestRenderer.create(<HallScene {...base} trailerVideo={video} trailerPlaying/>)
+    expect(screenLayer(on)[0].instance.visible).toBe(true)
+    expect(screenLayer(on)[0].instance.material.map.isVideoTexture).toBe(true); await on.unmount()
+  })
+})

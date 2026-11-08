@@ -8,6 +8,7 @@
 | `npm test` | Render tests: clicks through Movies filters, Movie page, theatre board |
 | `npm run check` | Fast rule checks on the showtimes engine (determinism, gaps, formats) |
 | `npm run data:build` | Rebuilds `src/data/cinemas.generated.ts` from the CSV (also runs before `npm run build`) |
+| `npm run smoke` | REAL-browser check of the 3D hall (needs `npm i -D puppeteer-core`, `npm run dev` running, and `CHROME_PATH`) — catches blank canvases that unit tests cannot |
 | `npm run geocode` | Finds exact coordinates for cinemas (your computer, internet needed) — see `docs/DATA.md` |
 
 ## Turn on debug logs
@@ -40,9 +41,11 @@ tests/         day2.test.tsx (UI behaviour)      scripts/check-shows.ts (engine 
 | Showtime link opens placeholder | Expected until Day 4 (3D seat picker) — it should list the chosen theatre/time |
 | No cinemas for my place | `?debug=1`: look for `[cinehall:geo] cinemas found {raw, kept}`. raw=0 means OpenStreetMap has none within the radius → widen radius / search a bigger town. A `network` error = blocked/offline Overpass or rate limit |
 | GPS button does nothing / error | Browser must allow location for the site and the page must be https (localhost is fine). Error text shows the reason |
+| 3D area blank but row letters visible | The canvas is not drawing. Never use `useFrame(fn, <positive number>)` (it disables auto-render). Run `npm run smoke`; check the console for WebGL/shader errors |
+| Trailer not playing on the screen | `?debug=1` → `[cinehall:trailer]`. Autoplay blocked → "Tap to play trailer". File/codec problem → "Trailer video could not load" (use MP4 H.264 + WebM VP9). See `docs/TRAILERS.md` |
 | Seat picker blank / wrong | `?debug=1` logs `[cinehall:seats] pick C5 ok`. No WebGL or a 3D crash → automatic 2D map (explained on the page). Real scene: `tests/scene.test.tsx` |
 | Seat colour wrong in 3D | `seatColor()` in `three/HallScene.tsx`; 2D map colours in `components/SeatMap2D.tsx` |
-| Seat sold unexpectedly | `soldSeatIds` in `lib/hall.ts` (deterministic from `show.seed`; couples sell in pairs) |
+| Seat sold unexpectedly | `soldSeatIds` in `lib/hall.ts` (deterministic from `show.seed`, exactly `show.soldCount` seats) |
 | Camera inside a wall | `clampToHall` in `lib/hall.ts` (has a fuzz test); tune HALL_DIMS |
 | A cinema is missing / wrong place | Edit the CSV → `npm run data:build`; exact position → `npm run geocode` |
 | Wrong colour on a chip | One source of truth: `levelOf` in `lib/availability.ts` |

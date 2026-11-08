@@ -8,7 +8,7 @@ Upload this file (or the repo) at the start of each new chat so work continues f
 | 2 | Movies filters, Movie page layout, seeded RNG + showtimes engine, theatre board | ✅ Done |
 | 3 | Timeline showtimes, date strip, format filters, smart pick (+ location: GPS / place search / nearest cinemas) | ✅ Done |
 | 3b | Real cinema database (your CSV, 228 venues) replaces the fictional theatres; city/state/PIN search; live-OSM merge | ✅ Done |
-| 4 | 3D hall v1: floor, walls, screen, instanced seats, selection | ✅ Done (visual check by you pending) |
+| 4 | 3D hall v1: floor, walls, screen, instanced seats, selection | ✅ Done (first version had a blank-canvas bug — fixed and verified in a real browser, see Day 4 fix) |
 | 5 | Camera presets, clamp, view-from-seat, auto tour, Best seats | ⬜ |
 | 6 | Panorama 3D hero (entry page — match the reference screenshot; rename to Cineverse) | ⬜ |
 | 7 | Trailer-first movie page, Lenis + GSAP | ⬜ |
@@ -89,6 +89,15 @@ Upload this file (or the repo) at the start of each new chat so work continues f
 ### Housekeeping
 - Delete `src/pages/SeatsStub.tsx` from your repo (replaced by `pages/Seats.tsx`; sync does not delete files).
 - `package.json` changed (three, @react-three/fiber, drei, test libs) → run `npm install` after syncing.
+
+## Day 4 fix — blank 3D hall, single recliners, trailer on the screen (done, verified in a real browser)
+**Why the hall was blank (your screenshot showed only row letters):** the camera safety clamp used `useFrame(..., 1)`. In react-three-fiber a POSITIVE priority switches off automatic rendering, so nothing was ever drawn (0 draw calls) — the row letters are normal page elements, so they still appeared. Fixed (priority 0). My earlier tests had no GPU, so they could not see it; I then got a real Chromium running here (software WebGL), reproduced your exact screenshot, fixed it and re-checked.
+- Regression guards: `tests/render-loop.test.ts` (fails if any `useFrame` priority is positive — mutation-checked) and `npm run smoke` (`scripts/browser-smoke.mjs`: real Chrome, asserts the canvas draws, no shader errors, hover tooltip, click selects one seat, drag selects nothing). See `docs/DEBUGGING.md`.
+- **Recliners are single seats now** (A–B): each one is bookable on its own; pairing logic and data removed. Sold seats = exactly `show.soldCount`.
+- **Trailer plays on the 3D screen** (video texture) with Play/Pause, Mute, "Tap to play" if autoplay is blocked, plays only in 3D view. Placeholder clip for every movie until you add real files → `docs/TRAILERS.md`. Optional YouTube "Full trailer" popup via `trailerId`.
+- Default camera moved to an overview above the main floor so the whole screen and rows A–J are visible; lighter walls/floor so the hall reads as a hall; balcony rail is translucent; backdrop image loads quietly (a failed image keeps a plain glow, never throws).
+- Verified in real Chromium (desktop + 390 px phone): draws ~1000 calls/frame, hover tooltip "Row G · Seat 8 · Gold · ₹260 · Available", click selects exactly one seat, drag to orbit selects nothing, price panel math correct (Gold 260 + 2 recliners 900 + fee 90 + GST 16 = ₹1266), no console errors. `npm test` 128 passing, `npm run check` 9 rules, production build 84 KB main + 228 KB lazy 3D chunk.
+- Still open: on a portrait phone the wide screen is slightly cropped (Day 10 mobile tuning); camera presets / from-my-seat / tour / Best seats = Day 5; software-rendered frame rate here says nothing about real phones.
 
 ## Next (Day 5)
 Camera presets (Overview, From stage, Balcony, Bird's eye), "From my seat" view, auto tour, straight-line camera moves, ✦ Best N seats (quantity + category).

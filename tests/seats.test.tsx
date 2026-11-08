@@ -53,15 +53,14 @@ describe('Seat picker — selection (2D map = same logic as 3D)', () => {
     await userEvent.click(seatBtn(available(1)[0]))
     expect(screen.getByRole('button',{name:/Continue to snacks/})).toBeEnabled()
   })
-  it('couple recliners select and deselect as a pair', async () => {
+  it('a premium recliner can be booked on its own (one seat, one recliner price)', async () => {
     await open()
     const a = available(1, id=>id[0]==='A' || id[0]==='B')[0]
     expect(a, 'fixture needs an unsold recliner').toBeTruthy()
     await userEvent.click(seatBtn(a))
-    const partner = useBooking.getState().seats.find(s=>s!==a)!
-    expect(useBooking.getState().seats).toHaveLength(2); expect(seatBtn(partner)).toHaveAttribute('aria-pressed','true')
-    expect(within(screen.getByTestId('price-summary')).getByText(/Premium × 2/)).toBeInTheDocument()
-    await userEvent.click(seatBtn(partner)); expect(useBooking.getState().seats).toHaveLength(0)
+    expect(useBooking.getState().seats).toEqual([a])
+    expect(within(screen.getByTestId('price-summary')).getByText(/Premium × 1/)).toBeInTheDocument()
+    await userEvent.click(seatBtn(a)); expect(useBooking.getState().seats).toHaveLength(0)
   })
   it('sold seats cannot be selected and explain why', async () => {
     await open()
